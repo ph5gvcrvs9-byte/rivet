@@ -8,31 +8,51 @@
 import Combine
 import SwiftData
 import SwiftUI
+import AVFoundation
+import UserNotifications
 
 struct PomodoroView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Streak.date, order: .forward) var streaks: [Streak]
-
+    
+    @State private var player: AVAudioPlayer?
+    
     private let focusTimes: [Int] = [1 * 10, 1 * 5, 1 * 15]
-
+    
     private let focusColors: [Color] = [
         Color.yellow, Color.blue, Color.green,
     ]
-
+    
     private let focusTexts: [String] = [
         "Focus", "Short break", "Long break",
     ]
-
+    
+    private var focusNotificationTitles: [String] = [
+        "It's time for a break!",
+        "Your short break is up!",
+        "Your long break is up! Time to lock in."
+    ]
+    
+    private var focusNotificationBody: [String] = [
+        "You finished another round, great work! Time for a break.",
+        "It's time to lock in again.",
+        "Down for another focus session?"
+    ]
+    
     @AppStorage("timerType") private var timerType: Int = 0
-
+    
     @AppStorage("pomodoroCount") private var pomodoroCount: Int = 1
     @AppStorage("timeRemaining") private var timeRemaining: Int = 25 * 60
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
+    
     @State private var timerStart = false
-
+    
     @Binding var streakCount: Int
-
+    
+    init(streakCount: Binding<Int>) {
+        self._streakCount = streakCount
+    }
+    
     var body: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 0) {
@@ -54,7 +74,7 @@ struct PomodoroView: View {
                         let total = Double(focusTimes[timerType])
                         CircularProgressView(
                             progress: total > 0
-                                ? Double(timeRemaining) / total : 0,
+                            ? Double(timeRemaining) / total : 0,
                             width: 50,
                             color: focusColors[timerType]
                         )
@@ -74,11 +94,23 @@ struct PomodoroView: View {
                     VStack(spacing: 5) {
                         Button {
                             timerStart.toggle()
+                            if timerStart == false {
+                                cancelNotification(id: "timerDone")
+                            } else {
+                                scheduleNotification(
+                                    id: "timerDone",
+                                    in: TimeInterval(timeRemaining),
+    //                                in: 25 * 60,
+                                    title: focusNotificationTitles[timerType],
+                                    body: focusNotificationBody[timerType]
+                                )
+                            }
+                            
                         } label: {
                             Label(
                                 "Start",
                                 systemImage: timerStart
-                                    ? "pause.fill" : "play.fill"
+                                ? "pause.fill" : "play.fill"
                             )
                         }
                         .labelStyle(.iconOnly)
@@ -88,12 +120,13 @@ struct PomodoroView: View {
                                 size: 12
                             )
                         )
-
+                        
                         if timerStart {
                             Button {
                                 timerStart = false
                                 timeRemaining = focusTimes[timerType]
-
+                                cancelNotification(id: "timerDone")
+                                
                             } label: {
                                 Label("Start", systemImage: "stop.fill")
                             }
@@ -105,9 +138,9 @@ struct PomodoroView: View {
                                 )
                             )
                         }
-
+                        
                     }
-
+                    
                 }
                 VStack(alignment: .leading, spacing: -2) {
                     HStack {
@@ -130,10 +163,10 @@ struct PomodoroView: View {
                             )
                             .foregroundStyle(.orange)
                     }
-
+                    
                 }
                 .padding(.top, 5)
-
+                
                 //                List{
                 //                    ForEach(streaks) {streak in
                 //                        Text(streak.date, style: .date)
@@ -169,7 +202,8 @@ struct PomodoroView: View {
             timeRemaining = focusTimes[newValue]
         }
         .onAppear {
-            //             resetStreaks() // Uncomment to clear all Streak records on appear
+            
+            //                         resetStreaks() // Uncomment to clear all Streak records on appear
             countStreak()
             if timeRemaining <= 0 {
                 timeRemaining = focusTimes[timerType]
@@ -178,25 +212,25 @@ struct PomodoroView: View {
             print(streaks)
         }
     }
-
+    
     func addRecord() {
         let today = Calendar.current.startOfDay(for: Date())
-
+        
         let mostRecent =
-            streaks
+        streaks
             .map { Calendar.current.startOfDay(for: $0.date) }
             .max() ?? Calendar.current.date(
                 byAdding: .day,
                 value: -1,
                 to: today
             )!
-
+        
         var cursor = Calendar.current.date(
             byAdding: .day,
             value: 1,
             to: mostRecent
         )!
-
+        
         while cursor <= today {
             let newRecord = Streak(date: cursor)
             modelContext.insert(newRecord)
@@ -206,21 +240,21 @@ struct PomodoroView: View {
                 to: cursor
             )!
         }
-
+        
         do {
             try modelContext.save()
         } catch {
             print("Failed to save streaks: \(error)")
         }
     }
-
+    
     func addPomodoroCount() {
         if let streak = streaks.last {
             streak.pomodoroCount += 1
             try? modelContext.save()
         }
     }
-
+    
     func resetStreaks() {
         do {
             try modelContext.delete(model: Streak.self)
@@ -229,20 +263,52 @@ struct PomodoroView: View {
             print("Failed to reset data: \(error)")
         }
     }
-
+    
     func countStreak() {
         streakCount = 0
         for streak in streaks.reversed() {
             print(streak.date)
             print(streak.pomodoroCount)
             if streak.pomodoroCount > 0 {
-
+                
                 streakCount += 1
             } else {
                 return
             }
         }
+        
+    }
+    func playSound() {
+        guard let soundURL = Bundle.main.url(forResource: "Ringtone1", withExtension: "caf") else {
+          return
+        }
 
+        do {
+          player = try AVAudioPlayer(contentsOf: soundURL)
+        } catch {
+          print("Failed to load the sound: \(error)")
+        }
+        player?.play()
+      }
+    
+    func scheduleNotification(id: String, in seconds: TimeInterval, title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("Ringtone1.caf"))
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false)
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Failed to schedule: \(error)")
+            }
+        }
+    }
+
+    func cancelNotification(id: String) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
     }
 }
 
