@@ -11,7 +11,7 @@ import UserNotifications
 
 struct ContentView: View {
     @State var streakCount = 0
-    
+    @State private var timerStart = false
     var body: some View {
         VStack {
             HStack(spacing: 5) {
@@ -69,8 +69,8 @@ struct ContentView: View {
 
             HStack {
 
-                PetView()
-                PomodoroView(streakCount: $streakCount)
+                PetView(timerStart: $timerStart)
+                PomodoroView(streakCount: $streakCount, timerStart: $timerStart)
             }
         }
         .padding(10)

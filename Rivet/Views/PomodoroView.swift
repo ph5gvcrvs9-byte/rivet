@@ -39,18 +39,21 @@ struct PomodoroView: View {
         "Down for another focus session?"
     ]
     
+    // timerType: focus = 0, short break = 1, long break = 2
     @AppStorage("timerType") private var timerType: Int = 0
+    @AppStorage("pomodoroGoal") private var pomodoroGoal: Int = 4
     
     @AppStorage("pomodoroCount") private var pomodoroCount: Int = 1
     @AppStorage("timeRemaining") private var timeRemaining: Int = 25 * 60
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
-    @State private var timerStart = false
+    @Binding var timerStart: Bool
     
     @Binding var streakCount: Int
     
-    init(streakCount: Binding<Int>) {
+    init(streakCount: Binding<Int>, timerStart: Binding<Bool>) {
         self._streakCount = streakCount
+        self._timerStart = timerStart
     }
     
     var body: some View {
@@ -154,7 +157,7 @@ struct PomodoroView: View {
                             .foregroundStyle(.gray)
                             .frame(width: 85)
                         Spacer()
-                        Text("\((streaks.last?.pomodoroCount) ?? 0)/6", )
+                        Text("\((streaks.last?.pomodoroCount) ?? 0)/\(pomodoroGoal)", )
                             .font(
                                 Font.custom(
                                     "Jua-Regular",
@@ -313,6 +316,6 @@ struct PomodoroView: View {
 }
 
 #Preview {
-    PomodoroView(streakCount: .constant(0))
+    PomodoroView(streakCount: .constant(0), timerStart: .constant(false))
         .padding()
 }
