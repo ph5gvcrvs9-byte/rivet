@@ -83,7 +83,7 @@ struct PetView: View {
                                     isTapping = false
                                 }
                         )
-                        .scaleEffect(isTapping ? 1.3 : 1.0)
+                        .scaleEffect(isTapping ? 2.0 : 1.7)
                         .animation(.bouncy, value: isTapping)
                 }
 
