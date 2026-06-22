@@ -260,7 +260,7 @@ struct PetView: View {
     }
     
     func determinePercentage() -> String{
-        let percent: Double = Double(pomodoroCountToday!) / Double(pomodoroGoal)
+        let percent: Double = Double(pomodoroCountToday ?? 0) / Double(pomodoroGoal)
         print(percent)
         if percent >= 1.0 {
             return "100%"

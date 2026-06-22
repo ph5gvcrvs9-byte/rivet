@@ -17,7 +17,7 @@ struct PomodoroView: View {
     
     @State private var player: AVAudioPlayer?
     
-    private let focusTimes: [Int] = [1 * 10, 1 * 5, 1 * 15]
+    private let focusTimes: [Int] = [60 * 25, 60 * 5, 60 * 15]
     
     private let focusColors: [Color] = [
         Color.yellow, Color.blue, Color.green,
